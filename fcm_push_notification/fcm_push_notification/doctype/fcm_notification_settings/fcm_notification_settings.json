@@ -1,0 +1,129 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-10-21 10:14:40.650074",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "project_id",
+  "private_key_id",
+  "private_key",
+  "client_email",
+  "client_id",
+  "service_account",
+  "column_break_ptnz",
+  "auth_uri",
+  "token_uri",
+  "auth_provider_x509_cert_url",
+  "client_x509_cert_url",
+  "universe_domain",
+  "section_break_chyx",
+  "access_token",
+  "column_break_oaik",
+  "expiration_time"
+ ],
+ "fields": [
+  {
+   "fieldname": "project_id",
+   "fieldtype": "Data",
+   "label": "Project ID"
+  },
+  {
+   "fieldname": "private_key_id",
+   "fieldtype": "Data",
+   "label": "Private Key ID"
+  },
+  {
+   "fieldname": "private_key",
+   "fieldtype": "Password",
+   "label": "Private Key"
+  },
+  {
+   "fieldname": "client_email",
+   "fieldtype": "Data",
+   "label": "Client Email"
+  },
+  {
+   "fieldname": "client_id",
+   "fieldtype": "Data",
+   "label": "Client ID"
+  },
+  {
+   "fieldname": "service_account",
+   "fieldtype": "Data",
+   "label": "Service Account"
+  },
+  {
+   "fieldname": "column_break_ptnz",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "auth_uri",
+   "fieldtype": "Data",
+   "label": "Auth URI"
+  },
+  {
+   "fieldname": "token_uri",
+   "fieldtype": "Data",
+   "label": "Token URI"
+  },
+  {
+   "fieldname": "auth_provider_x509_cert_url",
+   "fieldtype": "Data",
+   "label": "Auth Provider Cert"
+  },
+  {
+   "fieldname": "client_x509_cert_url",
+   "fieldtype": "Data",
+   "label": "Client Cert"
+  },
+  {
+   "fieldname": "universe_domain",
+   "fieldtype": "Data",
+   "label": "Universe Domain"
+  },
+  {
+   "fieldname": "section_break_chyx",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "access_token",
+   "fieldtype": "Small Text",
+   "label": "Access Token"
+  },
+  {
+   "fieldname": "column_break_oaik",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "expiration_time",
+   "fieldtype": "Datetime",
+   "label": "Expiration Time"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2025-10-30 13:16:29.560292",
+ "modified_by": "Administrator",
+ "module": "FCM Push Notification",
+ "name": "FCM Notification Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
