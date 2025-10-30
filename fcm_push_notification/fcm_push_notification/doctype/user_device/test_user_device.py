@@ -1,4 +1,4 @@
-# Copyright (c) 2025, Sun Phanithvatanak and Contributors
+# Copyright (c) 2025, HAMILTON SUY and Contributors
 # See license.txt
 
 # import frappe

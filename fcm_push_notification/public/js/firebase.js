@@ -1,6 +1,4 @@
 (function() {
-    console.log("Initializing Firebase for FCM.........................");
-
     function loadScript(src, callback) {
         const s = document.createElement('script');
         s.src = src;
@@ -31,10 +29,10 @@
 
         if ('serviceWorker' in navigator) {
             // Reuse existing SW if present
-            navigator.serviceWorker.getRegistration('/assets/recruitment_management_system/firebase-messaging-sw.js')
+            navigator.serviceWorker.getRegistration('/assets/fcm_push_notification/firebase-messaging-sw.js')
                 .then(reg => {
                     if (reg) return reg; // reuse existing SW
-                    return navigator.serviceWorker.register('/assets/recruitment_management_system/firebase-messaging-sw.js');
+                    return navigator.serviceWorker.register('/assets/fcm_push_notification/firebase-messaging-sw.js');
                 })
                 .then(async registration => {
                     console.log("Service Worker ready:", registration);
@@ -61,7 +59,7 @@
 
                             // Save token to Frappe
                             frappe.call({
-                                method: "recruitment_management_system.recruitment_management_system.doctype.user_device.user_device.save_web_token",
+                                method: "fcm_push_notification.fcm_push_notification.doctype.user_device.user_device.save_web_token",
                                 args: { token, device_type: deviceType }
                             });
                         }
