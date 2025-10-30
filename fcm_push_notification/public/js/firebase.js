@@ -12,8 +12,6 @@
     });
 
     function initFirebase() {
-        console.log("Firebase SDK loaded.");
-
         const firebaseConfig = {
             apiKey: "AIzaSyDI-A-Xd_sPKKAOPSM2meTQAnj9r8slpfM",
             authDomain: "rec-sp-fcm-integration.firebaseapp.com",
@@ -35,13 +33,9 @@
                     return navigator.serviceWorker.register('/assets/fcm_push_notification/firebase-messaging-sw.js');
                 })
                 .then(async registration => {
-                    console.log("Service Worker ready:", registration);
-
                     // Request notification permission
                     const permission = await Notification.requestPermission();
                     if (permission === "granted") {
-                        console.log("Notification permission granted.");
-
                         // Get FCM token
                         const token = await messaging.getToken({
                             vapidKey: "BIiEgUFGgXBl_L6FQje-fLJvkxKCTfwv0WfShrh2jEp8hRxClmWdfaV-smfkt3BzLx3WMlZkgKWy3145jLR_wnQ",
@@ -49,8 +43,6 @@
                         });
 
                         if (token) {
-                            console.log("Device Token:", token);
-
                             // Detect device type
                             const ua = navigator.userAgent;
                             let deviceType = "Web";
@@ -63,7 +55,6 @@
                                 args: { token, device_type: deviceType }
                             });
                         }
-
                     } else {
                         console.warn("Notification permission denied.");
                     }
@@ -73,7 +64,6 @@
 
         // Foreground messages
         messaging.onMessage(payload => {
-            console.log("Foreground message received:", payload);
             if (Notification.permission === "granted" && payload.notification) {
                 new Notification(payload.notification.title || "Notification", {
                     body: payload.notification.body || "",
