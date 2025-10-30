@@ -5,7 +5,7 @@ import frappe
 import requests
 import json
 from frappe.model.document import Document
-from recruitment_management_system.utils.fcm_notification import get_cached_access_token
+from fcm_push_notification.utils.fcm_notification import get_cached_access_token
 
 class UserDevice(Document):
 	def after_insert(self):
