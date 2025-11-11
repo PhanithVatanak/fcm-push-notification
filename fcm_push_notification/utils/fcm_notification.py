@@ -8,6 +8,8 @@ from frappe.utils import now, add_to_date
 import re
 
 def cleanhtml(raw_html):
+    if not raw_html:
+        return
     cleanr = re.compile('<.*?>')
     cleantext = re.sub(cleanr, '', raw_html)
     return cleantext
@@ -104,7 +106,16 @@ def send_fcm_notification(notification, device_token):
 
     body = cleanhtml(notification.email_content)
     title = cleanhtml(notification.subject)
+    
+    credentials_doc = frappe.get_single("FCM Notification Settings")
 
+    if notification.document_type and notification.document_name:
+        slug = notification.document_type.strip().lower().replace(" ", "-")
+        route_link = f"{frappe.utils.get_url()}/app/{slug}/{notification.document_name}"
+        fcm_icon_url = get_fcm_icon(document_type=notification.document_type, document_name=notification.document_name)
+    else:
+        fcm_icon_url = credentials_doc.fcm_icon
+        route_link = frappe.utils.get_url()
     payload = {
         "message": {
             "token": device_token,  # Target device
@@ -119,20 +130,19 @@ def send_fcm_notification(notification, device_token):
                 "notification": {
                     "title": title,
                     "body": body,
-                    "icon": f"{frappe.utils.get_url()}/files/hrinc_rms.png",  # Browser notification icon
-                    "click_action": frappe.utils.get_url() + "/" + notification.document_type.lower() + "/" + notification.document_name
+                    "icon": f"{fcm_icon_url}",
+                    "click_action": route_link
                 },
             },
             "data": {
-                "doctype": notification.document_type.lower(),
-                "docname": str(notification.document_name),
-                "click_action": frappe.utils.get_url() + "/" + notification.document_type.lower() + "/" + notification.document_name
+                "doctype": slug,
+                "docname": notification.document_name,
+                "click_action": route_link
             }
         }
     }
 
     fcm_endpoint = f'https://fcm.googleapis.com/v1/projects/{get_fcm_credentials()["project_id"]}/messages:send'
-
     try:
         response = requests.post(fcm_endpoint, headers=headers, json=payload)
         if response.status_code == 200:
@@ -173,3 +183,19 @@ def create_notification_log(user, subject, message, doc_type=None, doc_name=None
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), f"Notification Log insert failed: {e}")
         return None
+
+def get_fcm_icon(document_type, document_name):
+    credentials_doc = frappe.get_single("FCM Notification Settings")
+    fcm_icon = credentials_doc.fcm_icon
+
+    result = frappe.db.sql("""SELECT file_url FROM `tabFile`
+                            WHERE attached_to_doctype = %s AND attached_to_name = %s AND attached_to_field = 'image' LIMIT 1
+                        """,
+        (document_type, document_name),
+        as_dict=True
+    )
+
+    if result and result[0].get("file_url"):
+        fcm_icon = result[0]["file_url"]
+
+    return fcm_icon

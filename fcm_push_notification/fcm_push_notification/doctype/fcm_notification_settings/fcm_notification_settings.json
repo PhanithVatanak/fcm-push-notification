@@ -5,22 +5,23 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "configuration_section",
   "project_id",
   "private_key_id",
   "private_key",
   "client_email",
   "client_id",
   "service_account",
+  "fcm_icon",
   "column_break_ptnz",
   "auth_uri",
   "token_uri",
   "auth_provider_x509_cert_url",
   "client_x509_cert_url",
   "universe_domain",
-  "section_break_chyx",
-  "access_token",
-  "column_break_oaik",
-  "expiration_time"
+  "expiration_time",
+  "section_break_hkpp",
+  "access_token"
  ],
  "fields": [
   {
@@ -83,29 +84,35 @@
    "label": "Universe Domain"
   },
   {
-   "fieldname": "section_break_chyx",
-   "fieldtype": "Section Break"
-  },
-  {
    "fieldname": "access_token",
    "fieldtype": "Small Text",
    "label": "Access Token"
   },
   {
-   "fieldname": "column_break_oaik",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "expiration_time",
    "fieldtype": "Datetime",
    "label": "Expiration Time"
+  },
+  {
+   "fieldname": "fcm_icon",
+   "fieldtype": "Attach Image",
+   "label": "FCM Icon"
+  },
+  {
+   "fieldname": "section_break_hkpp",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "configuration_section",
+   "fieldtype": "Section Break",
+   "label": "Configuration"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-10-30 14:05:53.865577",
+ "modified": "2025-11-10 14:39:55.312156",
  "modified_by": "Administrator",
  "module": "FCM Push Notification",
  "name": "FCM Notification Settings",
