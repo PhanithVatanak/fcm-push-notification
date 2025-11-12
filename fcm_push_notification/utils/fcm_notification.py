@@ -16,10 +16,15 @@ def cleanhtml(raw_html):
 
 def user_id(doc):
     user_email = doc.for_user
-    user_device_list = frappe.get_all(
-        "User Device", filters={"user": user_email}, fields=["device_token"]
-    )
-    return user_device_list
+
+    notification_check = frappe.get_value("User", {"name": user_email}, ["notifications"])
+    if notification_check == 1:
+        user_device_list = frappe.get_all(
+            "User Device", filters={"user": user_email}, fields=["device_token"]
+        )
+        return user_device_list
+    else:
+        return
 
 @frappe.whitelist()
 def notification_queue(doc, method):
@@ -83,9 +88,6 @@ def get_cached_access_token():
 
 @frappe.whitelist()
 def send_fcm_notification(notification, device_token):
-    """
-    Sends a push notification immediately using FCM.
-    """
     # Ensure device_token is string
     if isinstance(device_token, dict):
         device_token = device_token.get('device_token')
@@ -116,6 +118,7 @@ def send_fcm_notification(notification, device_token):
     else:
         fcm_icon_url = credentials_doc.fcm_icon
         route_link = frappe.utils.get_url()
+        
     payload = {
         "message": {
             "token": device_token,  # Target device
@@ -146,7 +149,6 @@ def send_fcm_notification(notification, device_token):
     try:
         response = requests.post(fcm_endpoint, headers=headers, json=payload)
         if response.status_code == 200:
-            # Success, do not log as error
             return {"status": "success", "response": response.json()}
         else:
             error_message = f"Failed to send notification ({response.status_code}): {response.text}"
