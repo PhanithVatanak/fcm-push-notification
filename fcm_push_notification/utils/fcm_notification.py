@@ -88,7 +88,7 @@ def get_cached_access_token():
 
 @frappe.whitelist()
 def send_fcm_notification(notification, device_token):
-    # Ensure device_token is string
+    slug = ""
     if isinstance(device_token, dict):
         device_token = device_token.get('device_token')
     if not device_token:
