@@ -21,7 +21,18 @@
   "universe_domain",
   "expiration_time",
   "section_break_hkpp",
-  "access_token"
+  "access_token",
+  "firebase_web_config_section",
+  "fwc_apikey",
+  "fwc_auth_domain",
+  "fwc_projectid",
+  "fwc_storage_bucket",
+  "column_break_cwnb",
+  "fwc_messaging_senderid",
+  "fwc_appid",
+  "fwc_measurementid",
+  "section_break_bvst",
+  "fwc_vapidkey"
  ],
  "fields": [
   {
@@ -85,7 +96,7 @@
   },
   {
    "fieldname": "access_token",
-   "fieldtype": "Small Text",
+   "fieldtype": "Text",
    "label": "Access Token"
   },
   {
@@ -106,13 +117,66 @@
    "fieldname": "configuration_section",
    "fieldtype": "Section Break",
    "label": "Configuration"
+  },
+  {
+   "fieldname": "firebase_web_config_section",
+   "fieldtype": "Section Break",
+   "label": "Firebase Web Config"
+  },
+  {
+   "fieldname": "fwc_apikey",
+   "fieldtype": "Data",
+   "label": "API Key"
+  },
+  {
+   "fieldname": "fwc_auth_domain",
+   "fieldtype": "Data",
+   "label": "Auth Domain"
+  },
+  {
+   "fieldname": "fwc_projectid",
+   "fieldtype": "Data",
+   "label": "Project ID"
+  },
+  {
+   "fieldname": "fwc_storage_bucket",
+   "fieldtype": "Data",
+   "label": "Storage Bucket"
+  },
+  {
+   "fieldname": "fwc_messaging_senderid",
+   "fieldtype": "Data",
+   "label": "Messaging SenderId"
+  },
+  {
+   "fieldname": "fwc_appid",
+   "fieldtype": "Data",
+   "label": "App Id"
+  },
+  {
+   "fieldname": "fwc_measurementid",
+   "fieldtype": "Data",
+   "label": "MeasurementId"
+  },
+  {
+   "fieldname": "fwc_vapidkey",
+   "fieldtype": "Small Text",
+   "label": "Vapid Key"
+  },
+  {
+   "fieldname": "column_break_cwnb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_bvst",
+   "fieldtype": "Section Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-11-10 14:39:55.312156",
+ "modified": "2025-11-18 15:19:28.026396",
  "modified_by": "Administrator",
  "module": "FCM Push Notification",
  "name": "FCM Notification Settings",

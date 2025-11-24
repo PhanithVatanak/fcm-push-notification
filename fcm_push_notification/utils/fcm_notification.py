@@ -53,6 +53,39 @@ def get_fcm_credentials():
     }
 
 @frappe.whitelist()
+def get_firebase_web_config():
+    firebase_web_config = frappe.get_single("FCM Notification Settings")
+    return {
+        "apiKey": firebase_web_config.get("fwc_apikey"),
+        "authDomain": firebase_web_config.get("fwc_auth_domain"),
+        "projectId": firebase_web_config.get("fwc_projectid"),
+        "storageBucket": firebase_web_config.get("fwc_storage_bucket"),
+        "messagingSenderId": firebase_web_config.get("fwc_messaging_senderid"),
+        "appId": firebase_web_config.get("fwc_appid"),
+        "measurementId": firebase_web_config.get("fwc_measurementid"),
+        "vapidKey": firebase_web_config.get("fwc_vapidkey")
+    }
+
+@frappe.whitelist(allow_guest=True)
+def get_firebase_sw_config_js():
+    doc = frappe.get_single("FCM Notification Settings")
+    js = f"""
+            self.fcm_config = {{
+            apiKey: "{doc.fwc_apikey}",
+            authDomain: "{doc.fwc_auth_domain}",
+            projectId: "{doc.fwc_projectid}",
+            storageBucket: "{doc.fwc_storage_bucket}",
+            messagingSenderId: "{doc.fwc_messaging_senderid}",
+            appId: "{doc.fwc_appid}",
+            measurementId: "{doc.fwc_measurementid}"
+        }};
+    """
+    frappe.local.response.filename = "fcm_sw_config.js"
+    frappe.local.response.type = "text/javascript"
+    frappe.local.response.display_content_as = "application/javascript"
+    return js
+
+@frappe.whitelist()
 def get_cached_access_token():
     """
     Retrieves the cached access token if valid, otherwise generates a new one.
