@@ -1,104 +1,102 @@
 import json
 import requests
 import frappe
-from frappe import enqueue
 from google.oauth2 import service_account
 from google.auth.transport import requests as google_requests
 from frappe.utils import now, add_to_date
 import re
 
+
+# ==============================
+# HELPERS
+# ==============================
 def cleanhtml(raw_html):
-    if not raw_html:
-        return
     cleanr = re.compile('<.*?>')
-    cleantext = re.sub(cleanr, '', raw_html)
-    return cleantext
+    return re.sub(cleanr, '', raw_html or "")
 
-def user_id(doc):
-    user_email = doc.for_user
 
-    notification_check = frappe.get_value("User", {"name": user_email}, ["notifications"])
-    if notification_check == 1:
-        user_device_list = frappe.get_all(
-            "User Device", filters={"user": user_email}, fields=["device_token"]
-        )
-        return user_device_list
-    else:
-        return
+def get_user_tokens(user):
+    """Get all device tokens for user"""
+    return frappe.get_all(
+        "User Device",
+        filters={"user": user},
+        pluck="device_token"
+    )
 
+
+# ==============================
+# MAIN ENTRY (TRIGGER)
+# ==============================
 @frappe.whitelist()
 def notification_queue(doc, method):
-    device_list = user_id(doc)
-    if device_list:
-        for device in device_list:
-            send_fcm_notification(notification=doc, device_token=device)
+    tokens = get_user_tokens(doc.for_user)
 
-@frappe.whitelist()
+    if not tokens:
+        return
+
+    access_token = get_cached_access_token()
+    if "error" in access_token:
+        frappe.log_error(access_token["error"], "FCM Token Error")
+        return
+
+    for token in tokens:
+        try:
+            send_fcm_notification(
+                notification=doc,
+                device_token=token,
+                access_token=access_token["access_token"]
+            )
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "FCM Send Loop Error")
+
+
+# ==============================
+# CREDENTIALS
+# ==============================
 def get_fcm_credentials():
-    """
-    Retrieves FCM credentials from FCM Notification Settings DocType.
-    """
-    credentials_doc = frappe.get_single("FCM Notification Settings")
+    doc = frappe.get_single("FCM Notification Settings")
+
     return {
         "type": "service_account",
-        "project_id": credentials_doc.get("project_id"),
-        "private_key_id": credentials_doc.get("private_key_id"),
-        "private_key": credentials_doc.get_password("private_key").replace("\\n", "\n").strip(),
-        "client_email": credentials_doc.get("client_email"),
-        "client_id": credentials_doc.get("client_id"),
-        "auth_uri": credentials_doc.get("auth_uri"),
-        "token_uri": credentials_doc.get("token_uri"),
-        "auth_provider_x509_cert_url": credentials_doc.get("auth_provider_x509_cert_url"),
-        "client_x509_cert_url": credentials_doc.get("client_x509_cert_url")
+        "project_id": doc.project_id,
+        "private_key_id": doc.private_key_id,
+        "private_key": doc.get_password("private_key").replace("\\n", "\n").strip(),
+        "client_email": doc.client_email,
+        "client_id": doc.client_id,
+        "auth_uri": doc.auth_uri,
+        "token_uri": doc.token_uri,
+        "auth_provider_x509_cert_url": doc.auth_provider_x509_cert_url,
+        "client_x509_cert_url": doc.client_x509_cert_url
     }
 
 @frappe.whitelist()
-def get_firebase_web_config():
-    firebase_web_config = frappe.get_single("FCM Notification Settings")
-    return {
-        "apiKey": firebase_web_config.get("fwc_apikey"),
-        "authDomain": firebase_web_config.get("fwc_auth_domain"),
-        "projectId": firebase_web_config.get("fwc_projectid"),
-        "storageBucket": firebase_web_config.get("fwc_storage_bucket"),
-        "messagingSenderId": firebase_web_config.get("fwc_messaging_senderid"),
-        "appId": firebase_web_config.get("fwc_appid"),
-        "measurementId": firebase_web_config.get("fwc_measurementid"),
-        "vapidKey": firebase_web_config.get("fwc_vapidkey")
-    }
-
-@frappe.whitelist(allow_guest=True)
-def get_firebase_sw_config_js():
+def get_firebase_config():
+    """
+    Return minimal Firebase web config for initializing the JS SDK
+    """
     doc = frappe.get_single("FCM Notification Settings")
-    js = f"""
-            self.fcm_config = {{
-            apiKey: "{doc.fwc_apikey}",
-            authDomain: "{doc.fwc_auth_domain}",
-            projectId: "{doc.fwc_projectid}",
-            storageBucket: "{doc.fwc_storage_bucket}",
-            messagingSenderId: "{doc.fwc_messaging_senderid}",
-            appId: "{doc.fwc_appid}",
-            measurementId: "{doc.fwc_measurementid}"
-        }};
-    """
-    frappe.local.response.filename = "fcm_sw_config.js"
-    frappe.local.response.type = "text/javascript"
-    frappe.local.response.display_content_as = "application/javascript"
-    return js
+    return {
+        "apiKey": doc.api_key,
+        "authDomain": doc.auth_domain,
+        "projectId": doc.project_id,
+        "storageBucket": doc.storage_bucket,
+        "messagingSenderId": doc.messaging_sender_id,
+        "appId": doc.app_id,
+        "vapidKey": doc.vapid_key
+    }
 
-@frappe.whitelist()
+# ==============================
+# ACCESS TOKEN (CACHED)
+# ==============================
 def get_cached_access_token():
-    """
-    Retrieves the cached access token if valid, otherwise generates a new one.
-    """
     try:
-        credentials_doc = frappe.get_single("FCM Notification Settings")
+        doc = frappe.get_single("FCM Notification Settings")
 
-        if credentials_doc.access_token and credentials_doc.expiration_time > now():
-            return {"access_token": credentials_doc.get("access_token")}
+        if doc.access_token and doc.expiration_time and doc.expiration_time > now():
+            return {"access_token": doc.access_token}
 
-        service_account_info = get_fcm_credentials()
         credentials = service_account.Credentials.from_service_account_info(
-            service_account_info,
+            get_fcm_credentials(),
             scopes=["https://www.googleapis.com/auth/firebase.messaging"]
         )
 
@@ -108,91 +106,89 @@ def get_cached_access_token():
         access_token = credentials.token
         expiration_time = add_to_date(now(), minutes=55)
 
-        credentials_doc.access_token = access_token
-        credentials_doc.expiration_time = expiration_time
-        credentials_doc.save()
+        doc.access_token = access_token
+        doc.expiration_time = expiration_time
+        doc.save(ignore_permissions=True)
         frappe.db.commit()
 
         return {"access_token": access_token}
 
     except Exception as e:
-        frappe.log_error(f"Error in get_cached_access_token: {str(e)}", "FCM Notification Error")
+        frappe.log_error(str(e), "FCM Access Token Error")
         return {"error": str(e)}
 
-@frappe.whitelist()
-def send_fcm_notification(notification, device_token):
-    slug = ""
-    if isinstance(device_token, dict):
-        device_token = device_token.get('device_token')
-    if not device_token:
-        frappe.log_error("Device token is empty", "FCM Notification Error")
-        return {"status": "failed", "error": "Empty device token"}
 
-    # Get access token
-    access_token = get_cached_access_token()
-    if "error" in access_token:
-        frappe.log_error(f"Cannot send FCM: {access_token['error']}", "FCM Notification Error")
-        return {"status": "failed", "error": access_token["error"]}
-
-    headers = {
-        'Authorization': f'Bearer {access_token["access_token"]}',
-        'Content-Type': 'application/json; UTF-8',
-    }
-
-    body = cleanhtml(notification.email_content)
+# ==============================
+# BUILD PAYLOAD
+# ==============================
+def build_payload(notification, device_token):
     title = cleanhtml(notification.subject)
-    
-    credentials_doc = frappe.get_single("FCM Notification Settings")
+    body = cleanhtml(notification.email_content)
 
-    if notification.document_type and notification.document_name:
-        slug = notification.document_type.strip().lower().replace(" ", "-")
-        route_link = f"{frappe.utils.get_url()}/app/{slug}/{notification.document_name}"
-        fcm_icon_url = get_fcm_icon(document_type=notification.document_type, document_name=notification.document_name)
-    else:
-        fcm_icon_url = credentials_doc.fcm_icon
-        route_link = frappe.utils.get_url()
-        
-    payload = {
+    base_url = frappe.utils.get_url()
+    # click_url = f"{base_url}/{notification.document_type.lower()}/{notification.document_name}"
+    click_url = f"{base_url}/app/{notification.document_type.lower().replace(' ', '-')}/{notification.document_name}"
+
+    return {
         "message": {
-            "token": device_token,  # Target device
+            "token": device_token,
             "notification": {
                 "title": title,
                 "body": body
             },
             "webpush": {
-                "headers": {
-                    "Urgency": "high"  # Show notification immediately even if tab inactive
-                },
-                "notification": {
-                    "title": title,
-                    "body": body,
-                    "icon": f"{fcm_icon_url}",
-                    "click_action": route_link
-                },
+                "fcm_options": {
+                    "link": click_url
+                }
             },
             "data": {
-                "doctype": slug,
-                "docname": notification.document_name,
-                "click_action": route_link
+                "doctype": notification.document_type.lower(),
+                "docname": str(notification.document_name),
+                "click_action": click_url
             }
         }
     }
 
-    fcm_endpoint = f'https://fcm.googleapis.com/v1/projects/{get_fcm_credentials()["project_id"]}/messages:send'
-    try:
-        response = requests.post(fcm_endpoint, headers=headers, json=payload)
-        if response.status_code == 200:
-            return {"status": "success", "response": response.json()}
-        else:
-            error_message = f"Failed to send notification ({response.status_code}): {response.text}"
-            frappe.log_error(error_message, "FCM Notification Error")
-            return {"status": "failed", "error": error_message}
-    except Exception as e:
-        frappe.log_error(f"Exception while sending FCM: {str(e)}", "FCM Notification Error")
-        return {"status": "failed", "error": str(e)}
 
+# ==============================
+# SEND FUNCTION
+# ==============================
+def send_fcm_notification(notification, device_token, access_token=None):
+    if not device_token:
+        return
+
+    if not access_token:
+        token_data = get_cached_access_token()
+        if "error" in token_data:
+            return
+        access_token = token_data["access_token"]
+
+    project_id = get_fcm_credentials()["project_id"]
+
+    url = f"https://fcm.googleapis.com/v1/projects/{project_id}/messages:send"
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
+    }
+
+    payload = build_payload(notification, device_token)
+
+    response = requests.post(url, headers=headers, json=payload)
+
+    if response.status_code != 200:
+        frappe.log_error(
+            f"{response.status_code} | {response.text}",
+            "FCM Send Error"
+        )
+
+    return response.json()
+
+
+# ==============================
+# LOG (UNCHANGED, CLEANED)
+# ==============================
 def create_notification_log(user, subject, message, doc_type=None, doc_name=None, log_type="Alert"):
-    """Insert a record into Notification Log safely and easily."""
     try:
         log = frappe.get_doc({
             "doctype": "Notification Log",
@@ -203,34 +199,14 @@ def create_notification_log(user, subject, message, doc_type=None, doc_name=None
             "document_type": doc_type,
             "document_name": doc_name,
         })
+
         log.insert(ignore_permissions=True)
 
-        # Only commit in background jobs or manual scripts
-        if frappe.flags.in_test or frappe.flags.in_migrate:
-            pass
-        elif frappe.local.flags.in_test:
-            pass
-        elif not frappe.flags.in_transaction:
+        if not frappe.flags.in_test and not frappe.flags.in_migrate:
             frappe.db.commit()
 
         return log.name
 
-    except Exception as e:
-        frappe.log_error(frappe.get_traceback(), f"Notification Log insert failed: {e}")
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Notification Log Error")
         return None
-
-def get_fcm_icon(document_type, document_name):
-    credentials_doc = frappe.get_single("FCM Notification Settings")
-    fcm_icon = credentials_doc.fcm_icon
-
-    result = frappe.db.sql("""SELECT file_url FROM `tabFile`
-                            WHERE attached_to_doctype = %s AND attached_to_name = %s AND attached_to_field = 'image' LIMIT 1
-                        """,
-        (document_type, document_name),
-        as_dict=True
-    )
-
-    if result and result[0].get("file_url"):
-        fcm_icon = result[0]["file_url"]
-
-    return fcm_icon

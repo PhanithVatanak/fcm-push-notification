@@ -26,11 +26,10 @@ app_license = "mit"
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/fcm_push_notification/css/fcm_push_notification.css"
-# app_include_js = "/assets/fcm_push_notification/js/fcm_push_notification.js"
-app_include_js = ["https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js",
-				"https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js",
-				"/assets/fcm_push_notification/js/firebase.js",
-                ]
+# app_include_js = "/assets/fcm_push_notification/js/firebase.js"
+# app_include_js = [
+#                 "/assets/fcm_push_notification/js/firebase.js",
+#                 ]
 
 # include js, css files in header of web template
 # web_include_css = "/assets/fcm_push_notification/css/fcm_push_notification.css"

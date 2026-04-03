@@ -68,4 +68,3 @@ def save_web_token(token, device_type):
 
 		frappe.db.commit()
 		return {"status": "success"}
-

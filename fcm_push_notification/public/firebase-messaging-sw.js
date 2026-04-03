@@ -1,99 +1,95 @@
-let messaging = null
+importScripts("https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js");
 
-self.addEventListener("message", event => {
-    if (event.data && event.data.type === "INIT_FIREBASE") {
+firebase.initializeApp({
+    apiKey: "AIzaSyA8BY-_r1X61aaDSquKZbYqRrVScp2_fRU",
+    authDomain: "rec-sp-fcm-integration.firebaseapp.com",
+    projectId: "rec-sp-fcm-integration",
+    storageBucket: "rec-sp-fcm-integration.firebasestorage.app",
+    messagingSenderId: "321895106947",
+    appId: "1:321895106947:web:9b31bd4259927f81654eb6",
+    measurementId: "G-2FW7RPGQEL"
+});
 
-        importScripts("https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js")
-        importScripts("https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js")
+const messaging = firebase.messaging();
 
-        firebase.initializeApp(event.data.config)
-        messaging = firebase.messaging()
+messaging.onBackgroundMessage(function(payload) {
+    console.log("Background message received:", payload);
 
-        messaging.onBackgroundMessage(payload => {
-            const title = payload.notification?.title || "Notification"
-            const options = {
-                body: payload.notification?.body || "",
-                icon: payload.notification?.icon || "",
-                data: payload.data || {}
-            }
+    const notificationTitle = payload.notification?.title || "Notification";
+    const notificationOptions = {
+        body: payload.notification?.body || "",
+        icon: payload.notification?.icon || "",
+        data: payload.data || {}
+    };
 
-            self.registration.showNotification(title, options)
-        })
+    self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+self.addEventListener("notificationclick", function(event) {
+    event.notification.close();
+
+    const data = event.notification.data || {};
+    let url = data.click_action || "/";
+
+    if (data.doctype && data.docname) {
+        const doctype_lower = data.doctype.toLowerCase();
+        url = self.location.origin + "/app/" + doctype_lower + "/" + data.docname;
     }
-})
-
-self.addEventListener("notificationclick", event => {
-    event.notification.close()
-
-    const target = event.notification.data?.url || "/"
+    else if (data.click_action) {
+        url = data.click_action;
+    }
 
     event.waitUntil(
-        clients.matchAll({ type: "window", includeUncontrolled: true }).then(clientList => {
-            for (const client of clientList) {
-                if (client.url === target && "focus" in client) {
-                    return client.focus()
+        clients.matchAll({ type: "window", includeUncontrolled: true })
+            .then(windowClients => {
+                for (let client of windowClients) {
+                    if (client.url.startsWith(self.location.origin + url) && "focus" in client) {
+                        return client.focus();
+                    }
                 }
-            }
-            if (clients.openWindow) {
-                return clients.openWindow(target)
-            }
-        })
-    )
-})
+                if (clients.openWindow) {
+                    return clients.openWindow(url);
+                }
+            })
+    );
+});
 
+// importScripts('https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js');
+// importScripts('https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js');
 
-
-// importScripts("https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js");
-// importScripts("https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js");
-
+// // Replace with the same Firebase project config
 // firebase.initializeApp({
-//     apiKey: "AIzaSyDI-A-Xd_sPKKAOPSM2meTQAnj9r8slpfM",
-//     authDomain: "rec-sp-fcm-integration.firebaseapp.com",
-//     projectId: "rec-sp-fcm-integration",
-//     storageBucket: "rec-sp-fcm-integration.firebasestorage.app",
-//     messagingSenderId: "321895106947",
-//     appId: "1:321895106947:web:8eade34915426177654eb6",
-//     measurementId: "G-G1H7JSWGWM"
+//     apiKey: "AIzaSyA1V_9RjExlnBKppdeSSFo1YmsFhXx6wHk",
+//     authDomain: "rec-push-notification-2026.firebaseapp.com",
+//     projectId: "rec-push-notification-2026",
+//     storageBucket: "rec-push-notification-2026.firebasestorage.app",
+//     messagingSenderId: "401804588197",
+//     appId: "1:401804588197:web:390b9198355639cb5c494c",
+//     measurementId: "G-9H1RSD922Y"
 // });
 
 // const messaging = firebase.messaging();
 
-// messaging.onBackgroundMessage(function(payload) {
-//     const notificationTitle = payload.notification?.title || "Notification";
-//     const notificationOptions = {
-//         body: payload.notification?.body || "",
-//         icon: payload.notification?.icon || "",
+// // Background notifications
+// messaging.onBackgroundMessage(payload => {
+//     console.log('[FCM SW] Background message received:', payload);
+
+//     if (!payload.notification) return;
+
+//     const title = payload.notification.title || "Notification";
+//     const options = {
+//         body: payload.notification.body || "",
+//         icon: payload.notification.icon || "",
 //         data: payload.data || {}
 //     };
 
-//     self.registration.showNotification(notificationTitle, notificationOptions);
+//     self.registration.showNotification(title, options);
 // });
 
-// self.addEventListener("notificationclick", function(event) {
+// self.addEventListener('notificationclick', event => {
 //     event.notification.close();
 
-//     const data = event.notification.data || {};
-//     let url = data.click_action || "/";
-
-//     if (data.doctype && data.docname) {
-//         const doctype_lower = data.doctype.toLowerCase();
-//         url = self.location.origin + "/app/" + doctype_lower + "/" + data.docname;
-//     }
-//     else if (data.click_action) {
-//         url = data.click_action;
-//     }
-
-//     event.waitUntil(
-//         clients.matchAll({ type: "window", includeUncontrolled: true })
-//             .then(windowClients => {
-//                 for (let client of windowClients) {
-//                     if (client.url.startsWith(self.location.origin + url) && "focus" in client) {
-//                         return client.focus();
-//                     }
-//                 }
-//                 if (clients.openWindow) {
-//                     return clients.openWindow(url);
-//                 }
-//             })
-//     );
+//     const clickAction = event.notification.data.click_action || '/';
+//     event.waitUntil(clients.openWindow(clickAction));
 // });

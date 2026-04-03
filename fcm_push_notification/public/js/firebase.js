@@ -1,91 +1,108 @@
-function initFirebase() {
-    frappe.call({
-        method: "fcm_push_notification.utils.fcm_notification.get_firebase_web_config",
-        callback: function(r) {
-            if (!r.message) return;
+(function() {
+    console.log("Initializing Firebase for FCM...");
 
-            const cfg = r.message;
-            firebase.initializeApp(cfg);
+    function loadScript(src, callback) {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = callback;
+        document.head.appendChild(s);
+    }
 
-            const messaging = firebase.messaging();
-            const key = "fcm_permission_choice";
-            const saved = localStorage.getItem(key);
-
-            if (!saved) {
-                askChoice(messaging, cfg.vapidKey, cfg, key);
-                return;
-            }
-
-            if (saved === "allow") {
-                requestBrowserPermission(messaging, cfg.vapidKey, cfg, key);
-            }
-        }
-    });
-}
-
-function askChoice(messaging, vapidKey, cfg, key) {
-    const d = new frappe.ui.Dialog({
-        title: "Allow notifications",
-        fields: [
-            {
-                fieldname: "i",
-                fieldtype: "HTML",
-                options: "<p>Do you want notifications on this device</p>"
-            }
-        ],
-        primary_action_label: "Allow",
-        primary_action() {
-            d.hide();
-            localStorage.setItem(key, "allow");
-            requestBrowserPermission(messaging, vapidKey, cfg, key);
-        },
-        secondary_action_label: "No",
-        secondary_action() {
-            d.hide();
-            localStorage.setItem(key, "deny");
-        }
+    // Load Firebase SDKs
+    loadScript("https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js", function() {
+        loadScript("https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js", initFirebase);
     });
 
-    d.show();
-}
+    async function initFirebase() {
+        console.log("Firebase SDK loaded.");
 
-function requestBrowserPermission(messaging, vapidKey, cfg, key) {
-    Notification.requestPermission().then(status => {
-        if (status !== "granted") {
-            localStorage.setItem(key, "deny");
-            return;
+        // Replace with your Firebase project config
+        const firebaseConfig = {
+            apiKey: "AIzaSyA8BY-_r1X61aaDSquKZbYqRrVScp2_fRU",
+            authDomain: "rec-sp-fcm-integration.firebaseapp.com",
+            projectId: "rec-sp-fcm-integration",
+            storageBucket: "rec-sp-fcm-integration.firebasestorage.app",
+            messagingSenderId: "321895106947",
+            appId: "1:321895106947:web:9b31bd4259927f81654eb6",
+            measurementId: "G-2FW7RPGQEL"
+        };
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
         }
 
-        if ("serviceWorker" in navigator) {
-            navigator.serviceWorker.register("/assets/fcm_push_notification/firebase-messaging-sw.js")
+        const messaging = firebase.messaging();
+        console.log("------------------- messaging : ", messaging)
+        if ('serviceWorker' in navigator) {
+            // 1. Point to the specific path without forcing the root '/' scope
+            const swPath = '/assets/fcm_push_notification/firebase-messaging-sw.js';
+
+            navigator.serviceWorker.getRegistration(swPath)
                 .then(reg => {
-                    if (reg.active) {
-                        reg.active.postMessage({
-                            type: "INIT_FIREBASE",
-                            config: cfg
+                    // 2. If registered already, reuse it; otherwise register new
+                    return reg || navigator.serviceWorker.register(swPath);
+                })
+                .then(async registration => {
+                    console.log("Service Worker ready:", registration);
+
+                    // Request notification permission
+                    const permission = await Notification.requestPermission();
+                    if (permission === "granted") {
+                        console.log("Notification permission granted.");
+
+                        // Get FCM token
+                        // Crucial: Pass the registration object here
+                        const token = await messaging.getToken({
+                            vapidKey: "BAsAqy2MZ0wEPPFeoKMrShEox_5kOfhKdxmPjErAnebkFyMpfrwkVNlmuS3VspvH06i1T_YbjN5NUJ_ixi_Kmgs",
+                            serviceWorkerRegistration: registration
                         });
+
+                        if (token) {
+                            console.log("Device Token:", token);
+
+                            const ua = navigator.userAgent;
+                            let deviceType = "Web";
+                            if (/Android/i.test(ua)) deviceType = "Android";
+                            else if (/iPhone|iPad|iPod/i.test(ua)) deviceType = "IOS";
+
+                            frappe.call({
+                                method: "fcm_push_notification.fcm_push_notification.doctype.user_device.user_device.save_web_token",
+                                args: { token, device_type: deviceType }
+                            });
+                        }
+
+                    } else {
+                        console.warn("Notification permission denied.");
                     }
-
-                    return messaging.getToken({ vapidKey: vapidKey });
                 })
-                .then(token => {
-                    frappe.call({
-                        method: "fcm_push_notification.fcm_push_notification.doctype.user_device.user_device.save_web_token",
-                        args: { token }
-                    });
-                    console.log("------------------------- token : ", token)
-                })
-                .catch(err => console.log("Token error", err));
+                .catch(err => {
+                    console.error("Service Worker registration failed:", err);
+                });
         }
-    });
-}
 
-window.initFirebase = initFirebase;
-
-
+        // Foreground messages
+        messaging.onMessage(payload => {
+            console.log("Foreground message received:", payload);
+            
+            if (Notification.permission === "granted") {
+                navigator.serviceWorker.getRegistration().then(reg => {
+                    const { title, body, icon } = payload.notification;
+                    const options = {
+                        body: body,
+                        icon: icon || "/assets/frappe/images/frappe-framework-logo.png",
+                        data: payload.data
+                    };
+                    reg.showNotification(title, options);
+                });
+            }
+        });
+    }
+})();
 
 
 // (function() {
+//     console.log("Initializing Firebase for FCM...");
+
 //     function loadScript(src, callback) {
 //         const s = document.createElement('script');
 //         s.src = src;
@@ -93,76 +110,74 @@ window.initFirebase = initFirebase;
 //         document.head.appendChild(s);
 //     }
 
-//     // Load Firebase SDKs
-//     loadScript("https://www.gstatic.com/firebasejs/10.12.3/firebase-app-compat.js", function() {
-//         loadScript("https://www.gstatic.com/firebasejs/10.12.3/firebase-messaging-compat.js", initFirebase);
+//     loadScript("https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js", function() {
+//         loadScript("https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js", initFirebase);
 //     });
 
-//     function initFirebase() {
+//     async function initFirebase() {
+//         console.log("Firebase SDK loaded.");
+
 //         const firebaseConfig = {
-//             apiKey: "AIzaSyDI-A-Xd_sPKKAOPSM2meTQAnj9r8slpfM",
-//             authDomain: "rec-sp-fcm-integration.firebaseapp.com",
-//             projectId: "rec-sp-fcm-integration",
-//             storageBucket: "rec-sp-fcm-integration.firebasestorage.app",
-//             messagingSenderId: "321895106947",
-//             appId: "1:321895106947:web:8eade34915426177654eb6",
-//             measurementId: "G-G1H7JSWGWM"
+//             apiKey: "AIzaSyA1V_9RjExlnBKppdeSSFo1YmsFhXx6wHk",
+//             authDomain: "rec-push-notification-2026.firebaseapp.com",
+//             projectId: "rec-push-notification-2026",
+//             storageBucket: "rec-push-notification-2026.firebasestorage.app",
+//             messagingSenderId: "401804588197",
+//             appId: "1:401804588197:web:390b9198355639cb5c494c",
+//             measurementId: "G-9H1RSD922Y"
 //         };
 
-//         firebase.initializeApp(firebaseConfig);
+//         if (!firebase.apps.length) {
+//             firebase.initializeApp(firebaseConfig);
+//         }
+
 //         const messaging = firebase.messaging();
 
 //         if ('serviceWorker' in navigator) {
-//             // Reuse existing SW if present
-//             navigator.serviceWorker.getRegistration('/assets/fcm_push_notification/firebase-messaging-sw.js')
-//                 .then(reg => {
-//                     if (reg) return reg; // reuse existing SW
-//                     return navigator.serviceWorker.register('/assets/fcm_push_notification/firebase-messaging-sw.js');
-//                 })
-//                 .then(async registration => {
-//                     // Request notification permission
-//                     const permission = await Notification.requestPermission();
-//                     if (permission === "granted") {
-//                         // Get FCM token
-//                         const token = await messaging.getToken({
-//                             vapidKey: "BIiEgUFGgXBl_L6FQje-fLJvkxKCTfwv0WfShrh2jEp8hRxClmWdfaV-smfkt3BzLx3WMlZkgKWy3145jLR_wnQ",
-//                             serviceWorkerRegistration: registration
-//                         });
+//             try {
+//                 await navigator.serviceWorker.register(
+//                     "/firebase-messaging-sw.js",
+//                     { scope: "/" }
+//                 );
 
-//                         if (token) {
-//                             // Detect device type
-//                             const ua = navigator.userAgent;
-//                             let deviceType = "Web";
-//                             if (/Android/i.test(ua)) deviceType = "Android";
-//                             else if (/iPhone|iPad|iPod/i.test(ua)) deviceType = "IOS";
+//                 // IMPORTANT: wait here
+//                 const registration = await navigator.serviceWorker.ready;
 
-//                             // Save token to Frappe
-//                             frappe.call({
-//                                 method: "fcm_push_notification.fcm_push_notification.doctype.user_device.user_device.save_web_token",
-//                                 args: { token, device_type: deviceType }
-//                             });
-//                         }
-//                     } else {
-//                         console.warn("Notification permission denied.");
-//                     }
-//                 })
-//                 .catch(err => console.error("Service Worker error:", err));
+//                 console.log("Service Worker READY:", registration);
+
+//                 const permission = await Notification.requestPermission();
+//                 if (permission !== "granted") {
+//                     console.warn("Notification permission denied.");
+//                     return;
+//                 }
+
+//                 const token = await messaging.getToken({
+//                     vapidKey: "BGvQzMuY5YEP6ksQIFws9O1mMY6DMNZOT_LdOokLEOcX63QuaoyJAEGBA-8_JSBAh4CsmapjGm8rpn-od2Q7E3E",
+//                     serviceWorkerRegistration: registration
+//                 });
+
+//                 console.log("FCM Device Token:", token);
+
+//             } catch (err) {
+//                 console.error("Service Worker error:", err);
+//             }
 //         }
 
 //         // Foreground messages
 //         messaging.onMessage(payload => {
+//             console.log("Foreground message received:", payload);
 //             if (Notification.permission === "granted" && payload.notification) {
-//                 new Notification(payload.notification.title || "Notification", {
+//                 const notif = new Notification(payload.notification.title || "Notification", {
 //                     body: payload.notification.body || "",
 //                     icon: payload.notification.icon || ""
 //                 });
 
-//                 notification.onclick = () => {
+//                 notif.onclick = () => {
 //                     window.focus();
-//                     if (notification.data && notification.data.url) {
-//                         window.location.href = notification.data.url;
+//                     if (payload.data && payload.data.click_action) {
+//                         window.location.href = payload.data.click_action;
 //                     }
-//                     notification.close();
+//                     notif.close();
 //                 };
 //             }
 //         });
