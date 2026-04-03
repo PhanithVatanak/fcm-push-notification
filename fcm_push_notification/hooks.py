@@ -26,7 +26,7 @@ app_license = "mit"
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/fcm_push_notification/css/fcm_push_notification.css"
-# app_include_js = "/assets/fcm_push_notification/js/firebase.js"
+app_include_js = "/assets/fcm_push_notification/js/firebase.js"
 # app_include_js = [
 #                 "/assets/fcm_push_notification/js/firebase.js",
 #                 ]
