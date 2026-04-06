@@ -71,20 +71,23 @@ def get_fcm_credentials():
 
 @frappe.whitelist()
 def get_firebase_config():
-    """
-    Return minimal Firebase web config for initializing the JS SDK
-    """
-    doc = frappe.get_single("FCM Notification Settings")
-    return {
-        "apiKey": doc.fwc_apikey,
-        "authDomain": doc.fwc_auth_domain,
-        "projectId": doc.fwc_projectid,
-        "storageBucket": doc.fwc_storage_bucket,
-        "messagingSenderId": doc.fwc_messaging_senderid,
-        "appId": doc.fwc_appid,
-        "measurementId": doc.fwc_measurementid,
-        "vapidKey": doc.fwc_vapidkey
-    }
+    try:
+        doc = frappe.get_single("FCM Notification Settings")
+
+        return {
+            "apiKey": doc.fwc_apikey,
+            "authDomain": doc.fwc_auth_domain,
+            "projectId": doc.fwc_projectid,
+            "storageBucket": doc.fwc_storage_bucket,
+            "messagingSenderId": doc.fwc_messaging_senderid,
+            "appId": doc.fwc_appid,
+            "measurementId": doc.fwc_measurementid,
+            "vapidKey": doc.fwc_vapidkey
+        }
+
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "FCM Config Error")
+        return None
 
 # ==============================
 # ACCESS TOKEN (CACHED)
@@ -127,7 +130,7 @@ def build_payload(notification, device_token):
     body = cleanhtml(notification.email_content)
 
     base_url = frappe.utils.get_url()
-    click_url = f"{base_url}/{notification.document_type.lower()}/{notification.document_name}"
+    click_url = f"{base_url}/app/{notification.document_type.lower()}/{notification.document_name}"
 
     settings = frappe.get_single("FCM Notification Settings")
     icon_url = settings.fcm_icon or "/assets/frappe/images/frappe-framework-logo.png"
@@ -138,27 +141,22 @@ def build_payload(notification, device_token):
 
     return {
         "message": {
-            "token": device_token,
-
-            # fallback (some browsers use this)
+            "token": device_token,  # Target device
             "notification": {
                 "title": title,
                 "body": body
             },
-
-            # ✅ main config for web push
             "webpush": {
+                "headers": {
+                    "Urgency": "high"  # Show notification immediately even if tab inactive
+                },
                 "notification": {
                     "title": title,
                     "body": body,
-                    "icon": icon_url,
+                    "icon": icon_url,  # Browser notification icon
                     "click_action": click_url
                 },
-                "fcm_options": {
-                    "link": click_url
-                }
             },
-
             "data": {
                 "doctype": notification.document_type.lower(),
                 "docname": str(notification.document_name),
@@ -166,7 +164,6 @@ def build_payload(notification, device_token):
             }
         }
     }
-
 
 # ==============================
 # SEND FUNCTION
