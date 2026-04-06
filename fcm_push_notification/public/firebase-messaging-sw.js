@@ -5,54 +5,58 @@ let messaging = null;
 
 async function initFirebaseSW() {
     try {
-        // ✅ use SAME method via REST API
         const res = await fetch('/api/method/fcm_push_notification.utils.fcm_notification.get_firebase_config');
         const data = await res.json();
-
         const config = data.message;
 
         if (!config) {
-            console.error("SW: Firebase config missing");
             return;
         }
 
         const { vapidKey, ...firebaseConfig } = config;
 
         firebase.initializeApp(firebaseConfig);
-
         messaging = firebase.messaging();
 
-        console.log("SW: Firebase initialized");
-
+        // Handle Background Messages
         messaging.onBackgroundMessage((payload) => {
-            console.log("SW: Background message:", payload);
-
-            const { title, body, icon } = payload.notification || {};
-
-            self.registration.showNotification(title, {
+            // We prioritize payload.data to avoid the 'Double Notification' 
+            // caused by the automatic SDK display of payload.notification
+            const title = payload.data?.title || payload.notification?.title || "New Notification";
+            const body = payload.data?.body || payload.notification?.body || "";
+            const icon = payload.data?.icon || payload.notification?.icon || "/assets/frappe/images/frappe-framework-logo.png";
+            
+            const notificationOptions = {
                 body: body,
-                icon: icon || "/assets/frappe/images/frappe-framework-logo.png",
-                data: payload.data
-            });
+                icon: icon,
+                data: payload.data, // Important for the click handler
+                tag: payload.data?.docname || 'frappe-notification' // Merges notifications for the same doc
+            };
+            
+            if (!payload.notification) {
+                self.registration.showNotification(title, notificationOptions);
+            }
         });
 
     } catch (err) {
-        console.error("SW: Failed to init Firebase", err);
+        return;
     }
 }
 
 initFirebaseSW();
 
+// Notification Click Logic
 self.addEventListener("notificationclick", function(event) {
     event.notification.close();
 
     const data = event.notification.data || {};
-    let url = data.click_action || "/";
+    let url = "/app";
 
+    // Build Frappe URL: /app/doctype/docname
     if (data.doctype && data.docname) {
-        const doctype_lower = data.doctype.toLowerCase();
-        url = self.location.origin + "/app/" + doctype_lower + "/" + data.docname;
-    }
+        const doctype_slug = data.doctype.toLowerCase().replace(/ /g, '-');
+        url = `${self.location.origin}/app/${doctype_slug}/${data.docname}`;
+    } 
     else if (data.click_action) {
         url = data.click_action;
     }
@@ -60,11 +64,13 @@ self.addEventListener("notificationclick", function(event) {
     event.waitUntil(
         clients.matchAll({ type: "window", includeUncontrolled: true })
             .then(windowClients => {
+                // If a tab is already open with this URL, focus it
                 for (let client of windowClients) {
-                    if (client.url.startsWith(self.location.origin + url) && "focus" in client) {
+                    if (client.url === url && "focus" in client) {
                         return client.focus();
                     }
                 }
+                // Otherwise, open a new window
                 if (clients.openWindow) {
                     return clients.openWindow(url);
                 }

@@ -14,16 +14,12 @@
     });
 
     async function initFirebase() {
-        console.log("Firebase SDK loaded.");
-
-        // ✅ Get config from backend
         let res;
         try {
             res = await frappe.call({
                 method: "fcm_push_notification.utils.fcm_notification.get_firebase_config"
             });
         } catch (err) {
-            console.error("Failed to load Firebase config:", err);
             return;
         }
 
@@ -52,22 +48,14 @@
             navigator.serviceWorker.getRegistration(swPath)
                 .then(reg => reg || navigator.serviceWorker.register(swPath))
                 .then(async registration => {
-                    console.log("Service Worker ready:", registration);
-
                     const permission = await Notification.requestPermission();
-
                     if (permission === "granted") {
-                        console.log("Notification permission granted.");
-
-                        // ✅ use dynamic vapidKey
                         const token = await messaging.getToken({
                             vapidKey: vapidKey,
                             serviceWorkerRegistration: registration
                         });
 
                         if (token) {
-                            console.log("Device Token:", token);
-
                             const ua = navigator.userAgent;
                             let deviceType = "Web";
                             if (/Android/i.test(ua)) deviceType = "Android";
@@ -77,15 +65,11 @@
                                 method: "fcm_push_notification.fcm_push_notification.doctype.user_device.user_device.save_web_token",
                                 args: { token, device_type: deviceType }
                             });
-                        } else {
-                            console.warn("No FCM token received");
                         }
-                    } else {
-                        console.warn("Notification permission denied.");
                     }
                 })
                 .catch(err => {
-                    console.error("Service Worker registration failed:", err);
+                    return;
                 });
         }
         
