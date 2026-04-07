@@ -26,7 +26,6 @@
         const config = res.message;
 
         if (!config) {
-            console.error("Firebase config missing");
             return;
         }
 

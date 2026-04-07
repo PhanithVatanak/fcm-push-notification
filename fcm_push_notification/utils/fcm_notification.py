@@ -133,7 +133,7 @@ def build_payload(notification, device_token):
     click_url = f"{base_url}/app/{notification.document_type.lower()}/{notification.document_name}"
 
     settings = frappe.get_single("FCM Notification Settings")
-    icon_url = settings.fcm_icon or "/assets/frappe/images/frappe-framework-logo.png"
+    icon_url = settings.fcm_icon or "https://frappe.io/files/frappe.png"
 
     # if file is stored in File doctype, convert to full URL
     if icon_url.startswith("/"):
@@ -197,8 +197,20 @@ def send_fcm_notification(notification, device_token, access_token=None):
             "FCM Send Error"
         )
 
+        # Handle unregistered token
+        if "UNREGISTERED" in response.text:
+            delete_device_token(device_token)
+
     return response.json()
 
+# ==============================
+# DELETE Device Token
+# ==============================
+def delete_device_token(device_token):
+    frappe.db.delete("User Device", {
+        "device_token": device_token
+    })
+    frappe.db.commit()
 
 # ==============================
 # LOG (UNCHANGED, CLEANED)

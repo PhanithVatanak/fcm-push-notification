@@ -1,79 +1,80 @@
 importScripts('https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js');
 
-let messaging = null;
+// Initialize Firebase with empty config first
+firebase.initializeApp({});
+const messaging = firebase.messaging();
 
+// ===========================
+// Background Push Handler
+// ===========================
+self.addEventListener('push', (event) => {
+    if (!event.data) return;
+
+    let payload = event.data.json();
+
+    const title = payload.data?.title || payload.notification?.title || "New Notification";
+    const body = payload.data?.body || payload.notification?.body || "";
+    const icon = payload.data?.icon || payload.notification?.icon || "/assets/frappe/images/frappe-framework-logo.png";
+
+    const notificationOptions = {
+        body: body,
+        icon: icon,
+        data: payload.data, // Include all data for click handler
+        tag: payload.data?.docname || 'frappe-notification'
+    };
+
+    // Show notification only if background message
+    if (!payload.notification) {
+        event.waitUntil(self.registration.showNotification(title, notificationOptions));
+    }
+});
+
+// ===========================
+// Notification Click Handler
+// ===========================
+self.addEventListener("notificationclick", function(event) {
+    event.notification.close();
+
+    const data = event.notification.data || {};
+    // Always use backend-provided click_action
+    let url = data.click_action || "/app";
+
+    event.waitUntil(
+        clients.matchAll({ type: "window", includeUncontrolled: true })
+            .then(windowClients => {
+                for (let client of windowClients) {
+                    if (client.url === url && "focus" in client) return client.focus();
+                }
+                if (clients.openWindow) return clients.openWindow(url);
+            })
+    );
+});
+
+// ===========================
+// Push Subscription Change
+// ===========================
+self.addEventListener("pushsubscriptionchange", function(event) {
+    console.log("Push subscription changed");
+    // You can re-subscribe here if needed
+});
+
+// ===========================
+// Fetch Firebase Config and Initialize Messaging
+// ===========================
 async function initFirebaseSW() {
     try {
         const res = await fetch('/api/method/fcm_push_notification.utils.fcm_notification.get_firebase_config');
         const data = await res.json();
         const config = data.message;
 
-        if (!config) {
-            return;
-        }
+        if (!config) return;
 
         const { vapidKey, ...firebaseConfig } = config;
-
         firebase.initializeApp(firebaseConfig);
-        messaging = firebase.messaging();
-
-        // Handle Background Messages
-        messaging.onBackgroundMessage((payload) => {
-            // We prioritize payload.data to avoid the 'Double Notification' 
-            // caused by the automatic SDK display of payload.notification
-            const title = payload.data?.title || payload.notification?.title || "New Notification";
-            const body = payload.data?.body || payload.notification?.body || "";
-            const icon = payload.data?.icon || payload.notification?.icon || "/assets/frappe/images/frappe-framework-logo.png";
-            
-            const notificationOptions = {
-                body: body,
-                icon: icon,
-                data: payload.data, // Important for the click handler
-                tag: payload.data?.docname || 'frappe-notification' // Merges notifications for the same doc
-            };
-            
-            if (!payload.notification) {
-                self.registration.showNotification(title, notificationOptions);
-            }
-        });
-
     } catch (err) {
-        return;
+        console.error("FCM SW init error:", err);
     }
 }
 
 initFirebaseSW();
-
-// Notification Click Logic
-self.addEventListener("notificationclick", function(event) {
-    event.notification.close();
-
-    const data = event.notification.data || {};
-    let url = "/app";
-
-    // Build Frappe URL: /app/doctype/docname
-    if (data.doctype && data.docname) {
-        const doctype_slug = data.doctype.toLowerCase().replace(/ /g, '-');
-        url = `${self.location.origin}/app/${doctype_slug}/${data.docname}`;
-    } 
-    else if (data.click_action) {
-        url = data.click_action;
-    }
-
-    event.waitUntil(
-        clients.matchAll({ type: "window", includeUncontrolled: true })
-            .then(windowClients => {
-                // If a tab is already open with this URL, focus it
-                for (let client of windowClients) {
-                    if (client.url === url && "focus" in client) {
-                        return client.focus();
-                    }
-                }
-                // Otherwise, open a new window
-                if (clients.openWindow) {
-                    return clients.openWindow(url);
-                }
-            })
-    );
-});
