@@ -40,23 +40,20 @@ self.addEventListener("notificationclick", function(event) {
     // Always use backend-provided click_action
     let url = data.click_action || "/app";
 
+    if (data.doctype && data.docname) {
+        const doctype_lower = data.doctype.toLowerCase().replace(/ /g, '-');
+        url = self.location.origin + "/app/" + doctype_lower + "/" + data.docname;
+    }
+
     event.waitUntil(
         clients.matchAll({ type: "window", includeUncontrolled: true })
             .then(windowClients => {
                 for (let client of windowClients) {
-                    if (client.url === url && "focus" in client) return client.focus();
+                    if (client.url.startsWith(url) && "focus" in client) return client.focus();
                 }
                 if (clients.openWindow) return clients.openWindow(url);
             })
     );
-});
-
-// ===========================
-// Push Subscription Change
-// ===========================
-self.addEventListener("pushsubscriptionchange", function(event) {
-    console.log("Push subscription changed");
-    // You can re-subscribe here if needed
 });
 
 // ===========================
