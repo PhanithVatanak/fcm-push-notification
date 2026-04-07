@@ -188,7 +188,7 @@ def send_fcm_notification(notification, device_token, access_token=None):
     }
 
     payload = build_payload(notification, device_token)
-
+    print("------------------ payload", payload)
     response = requests.post(url, headers=headers, json=payload)
 
     if response.status_code != 200:

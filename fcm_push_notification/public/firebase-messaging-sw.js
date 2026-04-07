@@ -19,23 +19,19 @@ async function initFirebaseSW() {
         messaging = firebase.messaging();
 
         // Handle Background Messages
-        messaging.onBackgroundMessage((payload) => {
-            // We prioritize payload.data to avoid the 'Double Notification' 
-            // caused by the automatic SDK display of payload.notification
-            const title = payload.data?.title || payload.notification?.title || "New Notification";
-            const body = payload.data?.body || payload.notification?.body || "";
-            const icon = payload.data?.icon || payload.notification?.icon || "/assets/frappe/images/frappe-framework-logo.png";
-            
+        messaging.onBackgroundMessage(function(payload) {
+            console.log("Background message received:", payload);
+
+            const data = payload.data || {};
+
+            const notificationTitle = data.title || "Notification";
             const notificationOptions = {
-                body: body,
-                icon: icon,
-                data: payload.data, // Important for the click handler
-                tag: payload.data?.docname || 'frappe-notification' // Merges notifications for the same doc
+                body: data.body || "",
+                icon: data.icon || "/assets/frappe/images/frappe-framework-logo.png",
+                data: data
             };
-            
-            if (!payload.notification) {
-                self.registration.showNotification(title, notificationOptions);
-            }
+
+            self.registration.showNotification(notificationTitle, notificationOptions);
         });
 
     } catch (err) {
