@@ -19,19 +19,21 @@ async function initFirebaseSW() {
         messaging = firebase.messaging();
 
         // Handle Background Messages
-        messaging.onBackgroundMessage(function(payload) {
-            console.log("Background message received:", payload);
-
-            const data = payload.data || {};
-
-            const notificationTitle = data.title || "Notification";
+        messaging.onBackgroundMessage((payload) => {
+            const title = payload.data.title;
+            const body = payload.data.body;
+            const icon = payload.data.icon;
+            
             const notificationOptions = {
-                body: data.body || "",
-                icon: data.icon || "/assets/frappe/images/frappe-framework-logo.png",
-                data: data
+                body: body,
+                icon: icon,
+                data: payload.data,
+                tag: payload.data.docname 
             };
-
-            self.registration.showNotification(notificationTitle, notificationOptions);
+            
+            if (!payload.notification) {
+                self.registration.showNotification(title, notificationOptions);
+            }
         });
 
     } catch (err) {
@@ -56,8 +58,6 @@ self.addEventListener("notificationclick", function(event) {
     else if (data.click_action) {
         url = data.click_action;
     }
-    
-    console.log("---------- url : ", url)
     
     event.waitUntil(
         clients.matchAll({ type: "window", includeUncontrolled: true })
