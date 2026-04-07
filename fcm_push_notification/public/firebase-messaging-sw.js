@@ -20,15 +20,17 @@ async function initFirebaseSW() {
 
         // Handle Background Messages
         messaging.onBackgroundMessage((payload) => {
-            const title = payload.data.title;
-            const body = payload.data.body;
-            const icon = payload.data.icon;
+            // We prioritize payload.data to avoid the 'Double Notification' 
+            // caused by the automatic SDK display of payload.notification
+            const title = payload.data?.title || payload.notification?.title || "New Notification";
+            const body = payload.data?.body || payload.notification?.body || "";
+            const icon = payload.data?.icon || payload.notification?.icon || "/assets/frappe/images/frappe-framework-logo.png";
             
             const notificationOptions = {
                 body: body,
                 icon: icon,
-                data: payload.data,
-                tag: payload.data.docname 
+                data: payload.data, // Important for the click handler
+                tag: payload.data?.docname || 'frappe-notification' // Merges notifications for the same doc
             };
             
             if (!payload.notification) {
@@ -43,17 +45,18 @@ async function initFirebaseSW() {
 
 initFirebaseSW();
 
-
+// Notification Click Logic
 self.addEventListener("notificationclick", function(event) {
     event.notification.close();
 
     const data = event.notification.data || {};
-    let url = data.click_action || "/";
+    let url = "/app";
 
+    // Build Frappe URL: /app/doctype/docname
     if (data.doctype && data.docname) {
-        const doctype_lower = data.doctype.toLowerCase();
-        url = self.location.origin + "/app/" + doctype_lower + "/" + data.docname;
-    }
+        const doctype_slug = data.doctype.toLowerCase().replace(/ /g, '-');
+        url = `${self.location.origin}/app/${doctype_slug}/${data.docname}`;
+    } 
     else if (data.click_action) {
         url = data.click_action;
     }
@@ -61,11 +64,13 @@ self.addEventListener("notificationclick", function(event) {
     event.waitUntil(
         clients.matchAll({ type: "window", includeUncontrolled: true })
             .then(windowClients => {
+                // If a tab is already open with this URL, focus it
                 for (let client of windowClients) {
-                    if (client.url.startsWith(self.location.origin + url) && "focus" in client) {
+                    if (client.url === url && "focus" in client) {
                         return client.focus();
                     }
                 }
+                // Otherwise, open a new window
                 if (clients.openWindow) {
                     return clients.openWindow(url);
                 }
