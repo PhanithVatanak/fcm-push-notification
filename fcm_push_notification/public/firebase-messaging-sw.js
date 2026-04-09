@@ -50,13 +50,12 @@ self.addEventListener("notificationclick", function(event) {
     event.notification.close();
 
     const data = event.notification.data || {};
-    let url = "/app";
+    let url = data.click_action || "/";
 
-    // Build Frappe URL: /app/doctype/docname
     if (data.doctype && data.docname) {
-        const doctype_slug = data.doctype.toLowerCase().replace(/ /g, '-');
-        url = `${self.location.origin}/app/${doctype_slug}/${data.docname}`;
-    } 
+        const doctype_lower = data.doctype.toLowerCase();
+        url = self.location.origin + "/app/" + doctype_lower + "/" + data.docname;
+    }
     else if (data.click_action) {
         url = data.click_action;
     }
@@ -64,13 +63,11 @@ self.addEventListener("notificationclick", function(event) {
     event.waitUntil(
         clients.matchAll({ type: "window", includeUncontrolled: true })
             .then(windowClients => {
-                // If a tab is already open with this URL, focus it
                 for (let client of windowClients) {
-                    if (client.url === url && "focus" in client) {
+                    if (client.url.startsWith(self.location.origin + url) && "focus" in client) {
                         return client.focus();
                     }
                 }
-                // Otherwise, open a new window
                 if (clients.openWindow) {
                     return clients.openWindow(url);
                 }
