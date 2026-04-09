@@ -1,155 +1,79 @@
+importScripts('https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js');
+
 let messaging = null;
-let firebaseInitialized = false;
 
-self.addEventListener("message", (event) => {
-    if (event.data && event.data.type === "INIT_FIREBASE") {
+async function initFirebaseSW() {
+    try {
+        const res = await fetch('/api/method/fcm_push_notification.utils.fcm_notification.get_firebase_config');
+        const data = await res.json();
+        const config = data.message;
 
-        if (firebaseInitialized) {
-            console.log("⚠️ Firebase already initialized");
+        if (!config) {
             return;
         }
 
-        importScripts("https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js");
-        importScripts("https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js");
-
-        const { vapidKey, ...firebaseConfig } = event.data.config;
+        const { vapidKey, ...firebaseConfig } = config;
 
         firebase.initializeApp(firebaseConfig);
         messaging = firebase.messaging();
 
-        firebaseInitialized = true;
-
-        console.log("🔥 Firebase initialized in Service Worker");
-
+        // Handle Background Messages
         messaging.onBackgroundMessage((payload) => {
-            console.log("🔥 Background message received:", payload);
-
-            const title =
-                payload.data?.title ||
-                payload.notification?.title ||
-                "Notification";
-
-            const options = {
-                body: payload.data?.body || payload.notification?.body || "",
-                icon:
-                    payload.data?.icon ||
-                    payload.notification?.icon ||
-                    "/assets/frappe/images/frappe-framework-logo.png",
-                data: payload.data || {},
-                tag: payload.data?.docname || "frappe-notification"
+            // We prioritize payload.data to avoid the 'Double Notification' 
+            // caused by the automatic SDK display of payload.notification
+            const title = payload.data?.title || payload.notification?.title || "New Notification";
+            const body = payload.data?.body || payload.notification?.body || "";
+            const icon = payload.data?.icon || payload.notification?.icon || "/assets/frappe/images/frappe-framework-logo.png";
+            
+            const notificationOptions = {
+                body: body,
+                icon: icon,
+                data: payload.data, // Important for the click handler
+                tag: payload.data?.docname || 'frappe-notification' // Merges notifications for the same doc
             };
-
-            self.registration.showNotification(title, options);
+            
+            if (!payload.notification) {
+                self.registration.showNotification(title, notificationOptions);
+            }
         });
-    }
-});
 
-// ✅ Notification click handler
-self.addEventListener("notificationclick", (event) => {
+    } catch (err) {
+        return;
+    }
+}
+
+initFirebaseSW();
+
+// Notification Click Logic
+self.addEventListener("notificationclick", function(event) {
     event.notification.close();
 
     const data = event.notification.data || {};
     let url = "/app";
 
+    // Build Frappe URL: /app/doctype/docname
     if (data.doctype && data.docname) {
-        const doctype = data.doctype.toLowerCase().replace(/ /g, "-");
-        url = `/app/${doctype}/${data.docname}`;
-    } else if (data.click_action) {
+        const doctype_slug = data.doctype.toLowerCase().replace(/ /g, '-');
+        url = `${self.location.origin}/app/${doctype_slug}/${data.docname}`;
+    } 
+    else if (data.click_action) {
         url = data.click_action;
     }
 
-    const fullUrl = self.location.origin + url;
-
     event.waitUntil(
         clients.matchAll({ type: "window", includeUncontrolled: true })
-            .then((clientList) => {
-                for (const client of clientList) {
-                    if (client.url.includes(url) && "focus" in client) {
+            .then(windowClients => {
+                // If a tab is already open with this URL, focus it
+                for (let client of windowClients) {
+                    if (client.url === url && "focus" in client) {
                         return client.focus();
                     }
                 }
-                return clients.openWindow(fullUrl);
+                // Otherwise, open a new window
+                if (clients.openWindow) {
+                    return clients.openWindow(url);
+                }
             })
     );
 });
-
-
-// importScripts('https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js');
-// importScripts('https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js');
-
-// let messaging = null;
-
-// async function initFirebaseSW() {
-//     try {
-//         const res = await fetch('/api/method/fcm_push_notification.utils.fcm_notification.get_firebase_config');
-//         const data = await res.json();
-//         const config = data.message;
-
-//         if (!config) {
-//             return;
-//         }
-
-//         const { vapidKey, ...firebaseConfig } = config;
-
-//         firebase.initializeApp(firebaseConfig);
-//         messaging = firebase.messaging();
-
-//         // Handle Background Messages
-//         messaging.onBackgroundMessage((payload) => {
-//             // We prioritize payload.data to avoid the 'Double Notification' 
-//             // caused by the automatic SDK display of payload.notification
-//             const title = payload.data?.title || payload.notification?.title || "New Notification";
-//             const body = payload.data?.body || payload.notification?.body || "";
-//             const icon = payload.data?.icon || payload.notification?.icon || "/assets/frappe/images/frappe-framework-logo.png";
-            
-//             const notificationOptions = {
-//                 body: body,
-//                 icon: icon,
-//                 data: payload.data, // Important for the click handler
-//                 tag: payload.data?.docname || 'frappe-notification' // Merges notifications for the same doc
-//             };
-            
-//             if (!payload.notification) {
-//                 self.registration.showNotification(title, notificationOptions);
-//             }
-//         });
-
-//     } catch (err) {
-//         return;
-//     }
-// }
-
-// initFirebaseSW();
-
-// // Notification Click Logic
-// self.addEventListener("notificationclick", function(event) {
-//     event.notification.close();
-
-//     const data = event.notification.data || {};
-//     let url = "/app";
-
-//     // Build Frappe URL: /app/doctype/docname
-//     if (data.doctype && data.docname) {
-//         const doctype_slug = data.doctype.toLowerCase().replace(/ /g, '-');
-//         url = `${self.location.origin}/app/${doctype_slug}/${data.docname}`;
-//     } 
-//     else if (data.click_action) {
-//         url = data.click_action;
-//     }
-
-//     event.waitUntil(
-//         clients.matchAll({ type: "window", includeUncontrolled: true })
-//             .then(windowClients => {
-//                 // If a tab is already open with this URL, focus it
-//                 for (let client of windowClients) {
-//                     if (client.url === url && "focus" in client) {
-//                         return client.focus();
-//                     }
-//                 }
-//                 // Otherwise, open a new window
-//                 if (clients.openWindow) {
-//                     return clients.openWindow(url);
-//                 }
-//             })
-//     );
-// });
