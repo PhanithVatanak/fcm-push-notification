@@ -43,7 +43,6 @@ self.addEventListener("message", function (event) {
     if (!event.data || event.data.type !== "INIT_FIREBASE") return;
 
     if (firebaseInitialized) {
-        console.log("⚠️ Firebase already initialized");
         return;
     }
 
@@ -54,11 +53,7 @@ self.addEventListener("message", function (event) {
 
     firebaseInitialized = true;
 
-    console.log("🔥 Firebase initialized in SW");
-
     messaging.onBackgroundMessage((payload) => {
-        console.log("🔥 Background message received:", payload);
-
         const title =
             payload.data?.title ||
             payload.notification?.title ||
